@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Input</title>
+</head>
+<body>
+    <form id="testForm" enctype="multipart/form-data"></form>
+    <h1>Voice Input Demo</h1>
+    <button id="recordButton">Start Recording</button>
+    <button id="stopButton" style="display:none;">Stop Recording</button>
+    <button id="playButton" style="display:none;">Play Recording</button>
+    <button id="uploadButton" style="display:none;">Upload Recording</button>
+    <p id="status"></p>
+    <p id="transcript"></p>
+
+    <script>
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const playButton = document.getElementById('playButton');
+        const uploadButton = document.getElementById('uploadButton');
+        const statusElement = document.getElementById('status');
+        const transcriptElement = document.getElementById('transcript');
+        let mediaRecorder;
+        let audioChunks = [];
+
+        recordButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
+        playButton.addEventListener('click', playRecording);
+        uploadButton.addEventListener('click', uploadRecording);
+
+        function startRecording() {
+            // Clear previous recording
+    audioChunks = [];
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        transcriptElement.innerHTML = 'Audio Recording: <audio controls src="' + audioUrl + '"></audio>';
+                        uploadButton.style.display = 'inline'; // Show the upload button after recording stops
+                    };
+
+                    mediaRecorder.start();
+                    statusElement.textContent = 'Recording...';
+                    recordButton.style.display = 'none';
+                    stopButton.style.display = 'inline';
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                });
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                statusElement.textContent = 'Recording stopped.';
+                recordButton.style.display = 'inline';
+                stopButton.style.display = 'none';
+                playButton.style.display = 'inline';
+            }
+        }
+
+        function playRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.controls = true;
+            transcriptElement.innerHTML = 'Audio Recording: ';
+            transcriptElement.appendChild(audio);
+        }
+
+        function uploadRecording() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            let data=document.querySelector("#testForm");
+            const formData = new FormData(data);
+            formData.append('audio', audioBlob);
+
+            fetch('upload-audio.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
